@@ -1,1 +1,1 @@
-# pathology-weakly-supervised-lung-cancer-growth-pattern-prediction
+# Pathology Weakely SUpervised Lung Cancer Growth pattern Prediction

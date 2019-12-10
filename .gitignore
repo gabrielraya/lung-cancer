@@ -1,3 +1,5 @@
+# Ignore nic repo
+neural-image-compression-private/*
 
 # Created by https://www.gitignore.io/api/python,pycharm
 # Edit at https://www.gitignore.io/?templates=python,pycharm
@@ -36,7 +38,7 @@
 # .idea/modules.xml
 # .idea/*.iml
 # .idea/modules
-# *.iml
+#
 # *.ipr
 
 # CMake

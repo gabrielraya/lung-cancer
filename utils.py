@@ -58,6 +58,11 @@ def copy_all(src, dst, ext='', rm=False):
         copy_files(src, dst, folder_id, ext='.svs', rm=rm)
 
 
+if __name__ == '__main__':
 
+    # Tests
 
-
+    # Copy all svs files to new_folder removing folder afterwards
+    data_folder = '../../images/'
+    new_folder = '../../images_renamed/'
+    copy_all(data_folder, new_folder, ext='.svs', rm=True)

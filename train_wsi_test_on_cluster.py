@@ -1,56 +1,66 @@
-# Copy data to local instance
-
-import os
-
-os.system('mkdir tcga_luad/')
-os.system('mkdir tcga_lusc/')
-os.system('cp /mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/tcga/featurized/tcga_luad/normal/* ./tcga_luad')
-os.system('cp /mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/tcga/featurized/tcga_lusc/normal/* ./tcga_lusc')
-
-
-# Import NIC to python path
-import sys
-nic_dir = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/code/neural-image-compression-private'
-sys.path.append(nic_dir +'/source')
-
 """
 Train a CNN on compressed whole-slide images.
 
     class 1 : luad
     class 0 : lusc
+
+    Dataset:
+        531 in LUAD
+        506 in LUSC
 """
-
-
-
+# Copy data to local instance
+cluster: bool = True
 
 import os
+if cluster:
+    os.system('mkdir tcga_luad/')
+    os.system('mkdir tcga_lusc/')
+    os.system('cp /mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/tcga/featurized/tcga_luad/normal/* ./tcga_luad')
+    os.system('cp /mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/tcga/featurized/tcga_lusc/normal/* ./tcga_lusc')
+    # Import NIC to python path
+    import sys
+    nic_dir = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/code/neural-image-compression-private'
+    sys.path.append(nic_dir +'/source')
+
 import keras
 import numpy as np
 import pandas as pd
+import time
+from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
-# from nic.gradcam_wsi import gradcam_on_dataset
-# from Project.train_compressed_wsi import FeaturizedWsiGenerator, FeaturizedWsiSequence
-# from digitalpathology.image.io import imagereader
+from sklearn.model_selection import train_test_split
+from keras import backend as K
 import scipy
 from nic.util_fns import cache_file
+from nic.train_compressed_wsi import  f1_score_plot
+from nic.gradcam_wsi import gradcam_on_features, grad_cam_fn, image_crop_from_wsi, overlay_gradcam_heatmap, overlay_gradcam_heatmap_bicolor
 import glob
-from os.path import exists, join, basename
+from os.path import exists, join, basename, dirname
 import shutil
 from nic.callbacks import ReduceLROnPlateau, ModelCheckpoint, HistoryCsv, FinishedFlag, PlotHistory, StoreModelSummary, \
     CopyResultsExternally, LearningRateScheduler
 
-"""
-531 in LUAD
-506 in LUSC
-"""
-
 
 def create_csv(data_paths):
-    """
-    Output: csv file with slide names and corresponding labels, to be use for preprocessing
-        labels 1 correspond to LUAD
-        labesl 0 correspond to LUSC
+    """Generate csv file with slide names and  labels.
+
+    Parameters
+    ----------
+    data_paths : dictionary-like, size 3
+        csv_path, path to store the csv file
+        data_dir_lusc, path where lusc files are located
+        data_dir_luad, path where luad files are located
+
+    Yields
+    ------
+    csv file : cvs file containing files and labels from both data paths (class 0, class 1)
+
+
+    Notes
+    -----
+    labesl 1 correspond to class 1 (LUAD)
+    labesl 0 correspond to class 0 (LUSC)
     """
 
     lusc_dir = data_paths['data_dir_lusc']
@@ -67,14 +77,66 @@ def create_csv(data_paths):
     lusc_df = pd.DataFrame(list(zip(lusc_paths, lusc_labels)), columns=['slide_id', 'label'])
     luad_df = pd.DataFrame(list(zip(luad_paths, luad_labels)), columns=['slide_id', 'label'])
 
-    # conacatenate dataframes
     data = pd.concat([lusc_df, luad_df], ignore_index=True, )
     export_csv = data.to_csv(csv_path, index=None, header=True)
     print('Csv file sucessfully exported!')
 
-#data_config = {'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path}
 
+def train_test_split_csv(paths, test_size=0.2):
+    """Split csv file into random train and test subsets on csv file format
+
+        Parameters
+        ----------
+        *paths : paths to be use to split
+
+        test_size : float, int or None, optional (default=0.2)
+            If float, should be between 0.0 and 1.0 and represent the proportion
+            of the dataset to include in the test split. If int, represents the
+            absolute number of test samples. If None, the value is set to the
+            complement of the train size. If ``train_size`` is also None, it will
+            be set to 0.25.
+
+        Yields
+        ------
+        csv files : cvs files splitted
+        """
+    csv_dir= paths['original']
+    csv_train_path = paths['split1']
+    csv_test_path = paths['split2']
+
+    df = pd.read_csv(csv_dir)
+    x_train, x_test, y_train, y_test = train_test_split(df['slide_id'], df['label'], test_size=test_size, random_state=0)
+    df = pd.DataFrame(pd.concat([x_train, y_train], axis=1))
+    df.to_csv(csv_train_path, index=None, header=True)
+    df = pd.DataFrame(pd.concat([x_test, y_test], axis=1))
+    df.to_csv(csv_test_path, index=None, header=True)
+    print('Csvs file sucessfully exported!')
+
+
+def generate_csv_files(paths, test_size=0.2, validation_size=0.3):
+    """Split data set into training, validation and test sets
+    """
+    csv_path = paths['csv_path']
+    csv_train = paths['csv_train']
+    csv_valid = paths['csv_val']
+    csv_test = paths['csv_test']
+    csv_paths = {'original': csv_path, 'split1': csv_train, 'split2': csv_test}
+    train_test_split_csv(csv_paths, test_size=test_size)
+    csv_paths = {'original': csv_train, 'split1': csv_train, 'split2':csv_valid}
+    train_test_split_csv(csv_paths, test_size=validation_size)
+
+#data_config = {'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path}
 #create_csv(data_config)
+
+
+#root_dir = r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction'
+#csv_path = root_dir+'/data/tcga/slide_list_tcga.csv'
+#csv_train = root_dir+'/data/tcga/train_slide_list_tcga.csv'
+#csv_val = root_dir+'/data/tcga/validation_slide_list_tcga.csv'
+#csv_test = root_dir+'/data/tcga/test_slide_list_tcga.csv'
+#paths = {'csv_path': csv_path, 'csv_train': csv_train, 'csv_val': csv_val, 'csv_test':csv_test}
+#generate_csv_files(paths, test_size=0.2, validation_size = 0.3)
+
 
 def get_labels_from_csv(csv_path):
     df = pd.read_csv(csv_path)
@@ -859,17 +921,16 @@ def fit_model(training_generator, validation_generator, output_dir, model, n_epo
                 pass
 
 
-def run_train_model(cache_path, epochs, size_of_batch):
-    root_dir = '/home/user'
-    data_dir_luad = '/home/user/tcga_luad'
-    data_dir_lusc = '/home/user/tcga_lusc'
-    csv_path = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/data/tcga/slide_list_tcga.csv'
-    output_dir = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/model'
 
-    data_config = {'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path}
-    image_ids_all, features_path, distance_map_path, labels_all, features_ids_all = read_data(data_config)
-
-
+def run_train_model(paths, epochs, size_of_batch):
+    data_dir_luad = paths['data_dir_luad']
+    data_dir_lusc = paths['data_dir_lusc']
+    #csv_path = paths['csv_path']
+    output_dir = paths['output_dir']
+    csv_train = paths['csv_train']
+    csv_val = paths['csv_val']
+    csv_test = paths['csv_test']
+    cache_dir = paths['cache_path']
 
     # Training set
     crop_size = 400
@@ -888,14 +949,13 @@ def run_train_model(cache_path, epochs, size_of_batch):
     patience = 4
     occlusion_augmentation = None
     elastic_augmentation = None
-    cache_dir = cache_path
     occlusion_augmentation = False;
     elastic_augmentation = False;
     shuffle_augmentation = None;
 
     print('Loading training set ...', flush=True)
     training_gen = FeaturizedWsiGenerator(
-        data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path},
+        data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_train},
         data_fn=read_data,
         batch_size=batch_size,
         augment=True,
@@ -914,7 +974,7 @@ def run_train_model(cache_path, epochs, size_of_batch):
     print('Loading validation set ...', flush=True)
     use_validation = True
     validation_gen = FeaturizedWsiSequence(
-        data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path},
+        data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_val},
         data_fn=read_data,
         batch_size=batch_size,
         crop_size=400,
@@ -959,11 +1019,7 @@ def run_train_model(cache_path, epochs, size_of_batch):
     )
 
 
-import time
-from os.path import dirname
-
-
-def eval_model(model_path, data_dir, crop_size, output_path, cache_dir, batch_size,
+def eval_model(model_path, data_config, crop_size, output_path, cache_dir, batch_size,
                custom_objects=None, keep_data=1.0):
     # Output dir
     if not exists(dirname(output_path)):
@@ -978,7 +1034,7 @@ def eval_model(model_path, data_dir, crop_size, output_path, cache_dir, batch_si
     # Test set
     print('Loading test set ...', flush=True)
     test_gen = FeaturizedWsiSequence(
-        data_config=data_dir,
+        data_config,
         data_fn=read_data,
         batch_size=batch_size,
         crop_size=crop_size,
@@ -1026,9 +1082,6 @@ def eval_model(model_path, data_dir, crop_size, output_path, cache_dir, batch_si
         df.to_csv(output_path)
 
 
-from sklearn.metrics import roc_curve, auc
-
-
 def plot_roc(labels, preds, output_path=None, close_fig=True, legend_label=None):
     # ROC
     fpr, tpr, _ = roc_curve(labels, preds)
@@ -1054,11 +1107,49 @@ def plot_roc(labels, preds, output_path=None, close_fig=True, legend_label=None)
     return roc_auc
 
 
+def compute_metrics(input_path, output_dir, group_by_slide=False, dropnan=False):
+    # Output dir
+    if not exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Read
+    df = pd.read_csv(input_path, header=0, index_col=0)
+
+    # Drop nan
+    if dropnan:
+        df = df.loc[df.notnull().all(axis=1), :]
+
+    # Group by slide id
+    if group_by_slide:
+        # needs to be adapted to your id's encoding format
+        if 'slide_id' not in df.columns:
+            df['slide_id'] = df['id'].apply(lambda x: '_'.join(x.split('_')[:-2]))
+        df_group = df.groupby('slide_id').mean()
+        labels = df_group['label'].values.astype('int')
+        preds = df_group['pred'].values
+    else:
+        labels = df['label'].values.astype('int')
+        preds = df['pred'].values
+
+    # Plot ROC
+    roc_auc = plot_roc(labels, preds, join(output_dir, 'roc.png'))
+    results = {'roc_auc': [roc_auc]}
+
+    # F1 score
+    f1_s, f1_th = f1_score_plot(labels, preds, join(output_dir, 'f1.png'))
+    results['f1_score'] = [f1_s]
+    results['f1_threshold'] = [f1_th]
+
+    # Store
+    pd.DataFrame(results).T.to_csv(join(output_dir, 'metrics.csv'))
+
+
+
 # Evaluate CNN
 def run_eval(data_config, output_dir, batch_size):
     eval_model(
         model_path=join(output_dir, 'last_epoch.h5'),
-        data_dir=data_config,
+        data_config=data_config,
         crop_size=400,
         output_path=join(output_dir, 'eval', 'preds.csv'),
         cache_dir=None,
@@ -1067,7 +1158,6 @@ def run_eval(data_config, output_dir, batch_size):
     )
 
     # Metrics
-    from nic.train_compressed_wsi import compute_metrics
     result_dir = output_dir
     try:
         compute_metrics(
@@ -1078,21 +1168,155 @@ def run_eval(data_config, output_dir, batch_size):
         print('Failed to compute metrics. Exception: {e}'.format(e=e), flush=True)
 
 
-# %%
 # Apply GradCAM analysis to CNN
 
+def gradcam_on_dataset(data_conf, model_path, layer_name, custom_objects=None,
+                       cache_dir=None, images_dir=None, vectorized_dir=None, output_dir=None, predict_two_output=True):
+    """
+    Applies GradCAM to a set of images.
 
-# %%
+    :param data_dir: path to compressed (featurized) images.
+    :param csv_path: list of slides.
+    :param partitions: list of partitions to select slides.
+    :param model_path: path to trained model.
+    :param layer_name: name of convolutional layer used to compute GradCAM.
+    :param output_unit: output unit in the final layer of the network to compute GradCAM.
+    :param custom_objects: used to load the model.
+    :param cache_dir: folder to store compressed images temporarily.
+    :return: nothing
+    """
+
+    # Featurized directories
+    data_dir_luad = data_conf['data_dir_luad']
+    data_dir_lusc = data_conf['data_dir_lusc']
+    csv_test = data_conf['csv_path']
+
+    # Output dir
+    output_dir = join(dirname(model_path), 'gradcam') if output_dir is None else output_dir
+    if not exists(output_dir):
+        os.makedirs(output_dir)
+
+    print('GradCAM in directory: {d} with content {c}'.format(
+        d=output_dir,
+        c=os.system("ls " + output_dir)
+    ), flush=True)
+
+    # List features
+    data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_test}
+    image_ids, paths, dm_paths, labels, features_ids = read_data(data_config) #, custom_augmentations=[('none', 0)])
+
+    # Load model and gradient function
+    K.set_learning_phase(0)  # required to avoid bug "You must feed a value for placeholder tensor 'batch_normalization_1/keras_learning_phase' with dtype bool"
+    model = keras.models.load_model(model_path, custom_objects=custom_objects)
+    gradient_function_0 = grad_cam_fn(model, 0, layer_name)
+    if predict_two_output:
+        gradient_function_1 = grad_cam_fn(model, 1, layer_name)
+    else:
+        gradient_function_1 = None
+
+    # Analyze features
+    for i, (image_id, path, dm_path, label, features_id, batch_id) in enumerate(zip(image_ids, paths, dm_paths, labels, features_ids, batch_ids)):
+
+        try:
+            print('Computing GradCAM on {filename} ... {i}/{n}'.format(
+                    filename=features_id, i=i+1, n=len(image_ids)), flush=True)
+
+            output_npy_path0, output_png_path0 = gradcam_on_features(
+                features_path=cache_file(path, cache_dir, overwrite=False),
+                distance_map_path=cache_file(dm_path, cache_dir, overwrite=False),
+                gradient_function=gradient_function_0,
+                output_npy_path=join(output_dir, features_id + '_{unit}_{preds}_gradcam.npy'.format(unit=0, preds='{preds:0.3f}')),
+                output_png_path=join(output_dir, features_id + '_{unit}_{preds}_gradcam.png'.format(unit=0, preds='{preds:0.3f}')),
+            )
+
+            if predict_two_output:
+                output_npy_path1, output_png_path1 = gradcam_on_features(
+                    features_path=cache_file(path, cache_dir, overwrite=False),
+                    distance_map_path=cache_file(dm_path, cache_dir, overwrite=False),
+                    gradient_function=gradient_function_1,
+                    output_npy_path=join(output_dir, features_id + '_{unit}_{preds}_gradcam.npy'.format(unit=1, preds='{preds:0.3f}')),
+                    output_png_path=join(output_dir, features_id + '_{unit}_{preds}_gradcam.png'.format(unit=1, preds='{preds:0.3f}')),
+                )
+
+            if (images_dir is not None) and (vectorized_dir is not None):
+                image_crop_from_wsi(
+                    wsi_path=join(images_dir, batch_id, image_id + '.mrxs'),
+                    vectorized_im_shape_path=join(vectorized_dir, image_id + '_im_shape.npy'),
+                    distance_map_path=cache_file(dm_path, cache_dir, overwrite=False),
+                    output_npy_path=join(output_dir, features_id + '_image.npy'),
+                    output_png_path=join(output_dir, features_id + '_image.png'),
+                    crop_size=400
+                )
+
+                overlay_gradcam_heatmap(
+                    gradcam_npy_path=output_npy_path0,
+                    image_npy_path=join(output_dir, features_id + '_image.npy'),
+                    output_png_path=join(output_dir, features_id + '_{unit}_heatmap.png'.format(unit=0))
+                )
+
+                if predict_two_output:
+                    overlay_gradcam_heatmap(
+                        gradcam_npy_path=output_npy_path1,
+                        image_npy_path=join(output_dir, features_id + '_image.npy'),
+                        output_png_path=join(output_dir, features_id + '_{unit}_heatmap.png'.format(unit=1))
+                    )
+
+                    overlay_gradcam_heatmap_bicolor(
+                        gradcam_npy_path1=output_npy_path0,
+                        gradcam_npy_path2=output_npy_path1,
+                        image_npy_path=join(output_dir, features_id + '_image.npy'),
+                        output_png_path=join(output_dir, features_id + '_both_heatmap.png')
+                    )
+        except Exception as e:
+            print('Failed to compute GradCAM on {f}. Exception: {e}'.format(f=path, e=e), flush=True)
+
+
+
 if __name__ == '__main__':
-    #root_dir = r'E:/code/Project'
-    root_dir = '/home/user'
-    data_dir_luad = '/home/user/tcga_luad'
-    data_dir_lusc = '/home/user/tcga_lusc'
-    csv_path = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/data/tcga/slide_list_tcga.csv'
-    output_dir = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/model'
+    if cluster:
+        root_dir = '/home/user'
+        data_dir_luad = '/home/user/tcga_luad'
+        data_dir_lusc = '/home/user/tcga_lusc'
+        csv_path = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/data/tcga/slide_list_tcga.csv'
+        csv_train = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/data/tcga/train_slide_list_tcga.csv'
+        csv_val = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/data/tcga/validation_slide_list_tcga.csv'
+        csv_test = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/data/tcga/test_slide_list_tcga.csv'
+        model_dir = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/model_1_batch_size_12'  # change this everytime a new model is run
+    else:
+        csv_path = 'E:/code/Project/data/tcga_luad/results/slide_list_tcga.csv'
+        csv_train = 'E:/code/Project/data/tcga_luad/results/train_slide_list_tcga.csv'
+        csv_val = 'E:/code/Project/data/tcga_luad/results/validation_slide_list_tcga.csv'
+        csv_test = 'E:/code/Project/data/tcga_luad/results/test_slide_list_tcga.csv'
+        root_dir = r'E:/code/Project'
+        data_dir_luad = root_dir + r'/data/tcga_luad/results/featurized'
+        data_dir_lusc = root_dir + r'/data/tcga_lusc/results/featurized'
+        model_dir = root_dir + '/results/model_test2'  # change this everytime a new model is run
 
-    cache_dir = None
+        # paths = {'csv_path': csv_path, 'csv_train': csv_train, 'csv_val': csv_val, 'csv_test': csv_test}
+        # generate_csv_files(paths, test_size=0.2, validation_size = 0.3)
 
-    data_config = {'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path}
-    run_train_model(cache_dir, epochs=200, size_of_batch=8)
-    # run_eval(data_config, output_dir, batch_size=4)
+    cache_path = None
+
+    # Training
+    multiple_paths = {'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'output_dir': model_dir,
+                      'csv_train': csv_train, 'csv_val': csv_val, 'csv_test': csv_test, 'cache_path': cache_path}
+    #run_train_model(multiple_paths, epochs=200, size_of_batch=12)
+
+    # Model Evaluation
+    data_config = {'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_test}
+    run_eval(data_config, model_dir, batch_size=12)
+
+    from nic.gradcam_wsi gradcam_on_dataset
+    # Apply GradCAM analysis to CNN
+    gradcam_on_dataset(
+        featurized_dir=featurized_dir,
+        csv_path=csv_path,
+        model_path=join(result_dir, 'checkpoint.h5'),
+        partitions=folds[fold_n]['test'],
+        layer_name='separable_conv2d_1',
+        output_unit=1,
+        custom_objects=None,
+        cache_dir=cache_dir,
+        images_dir=images_dir,
+        vectorized_dir=vectorized_dir
+    )

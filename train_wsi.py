@@ -1,5 +1,8 @@
 """
 Train a CNN on compressed whole-slide images.
+
+    class 1 : luad
+    class 0 : lusc
 """
 
 import os
@@ -22,9 +25,11 @@ from nic.callbacks import ReduceLROnPlateau, ModelCheckpoint, HistoryCsv, Finish
 506 in LUSC
 """
 
-def create_csv(data_dir, csv_path, trar):
+def create_csv(data_dir, csv_path):
     """
     Output: csv file with slide names and corresponding labels, to be use for preprocessing
+        labels 1 correspond to LUAD
+        labesl 0 correspond to LUSC
     """
     data_dir1 = data_dir + '/tcga_luad/augmented'
     data_dir0 = data_dir + '/tcga_lusc/augmented'
@@ -41,7 +46,7 @@ def create_csv(data_dir, csv_path, trar):
 
     # conacatenate dataframes
     data = pd.concat([df1, df0], ignore_index=True, )
-    export_csv = data.to_csv(csv_path, index=None, header=True)
+    data.to_csv(csv_path, index=None, header=True)
     print('Csv file sucessfully exported!')
 
 def get_labels_from_csv(csv_path):
@@ -53,72 +58,109 @@ def get_labels_from_csv(csv_path):
     return image_ids, labels
 
 
+#%%
 
-def read_data(data_config, custom_augmentations=None):
+
+root_dir=  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction'
+data_dir_luad =  root_dir + r'\results\tcga\featurized\tcga_luad\normal'
+data_dir_lusc =  root_dir + r'\results\tcga\featurized\tcga_lusc\normal'
+csv_path      =  root_dir+'/data/tcga/slide_list_tcga.csv'
+output_dir    =   root_dir+'/results/tcga/model'
+root_dir=  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction'
+csv_path      =  root_dir+'/data/tcga/slide_list_tcga.csv'
+csv_train     =  root_dir+'/data/tcga/train_slide_list_tcga.csv'
+csv_val       =  root_dir+'/data/tcga/validation_slide_list_tcga.csv'
+csv_test      =  root_dir+'/data/tcga/test_slide_list_tcga.csv'
+
+
+from sklearn.model_selection import train_test_split
+
+def generate_csv_files(paths, split=0.2):
+    """
+    Generates csv files given a csv file
+    """
+    csv_dir= paths['original']
+    csv_train_path = paths['split1']
+    csv_test_path = paths['split2']
+    df = pd.read_csv(csv_dir)
+    X = df['slide_id']
+    y = df['label']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=split, random_state=0)
+    df = pd.DataFrame(pd.concat([X_train, y_train], axis=1))
+    df.to_csv(csv_train_path, index=None, header=True)
+    df = pd.DataFrame(pd.concat([X_test, y_test], axis=1))
+    df.to_csv(csv_test_path, index=None, header=True)
+    print('Csvs file sucessfully exported!')
+
+def split_train_tes_val(paths, test_size=0.2, validation_size = 0.3):
+    """
+    Split data set into training, validation and test sets
+    """
+    csv_path = paths['csv_path']
+    csv_train = paths['csv_train']
+    csv_valid = paths['csv_val']
+    csv_test = paths['csv_test']
+    csv_paths = {'original': csv_path, 'split1': csv_train, 'split2': csv_test}
+    generate_csv_files(csv_paths, split=test_size)
+    csv_paths = {'original': csv_train, 'split1': csv_train, 'split2':csv_val}
+    generate_csv_files(csv_paths, split=validation_size)
+
+paths = {'csv_path': csv_path, 'csv_train': csv_train, 'csv_val': csv_val, 'csv_test':csv_test}
+split_train_tes_val(paths, test_size=0.2, validation_size = 0.3)
+#%%
+df = pd.read_csv(csv_train)
+df2 = pd.read_csv(csv_val)
+df3 = pd.read_csv(csv_train)
+n = df.shape
+
+df = pd.read_csv(csv_train)
+df.shape
+
+
+#%%
+#data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path}
+
+#image_ids_all, features_path, distance_map_path, labels_all, features_ids_all = read_data(data_config)
+
+
+def read_data(data_conf):
     """
     Data reader
+    Inputs:
+        data_conf : dictionary with the data paths (featurize paths and csv file)
     Outputs:
         image_ids_all, features_path, distance_map_path, labels_all, features_ids_all
     """
 
     # Get params
-    data_dir = data_config['data_dir']
-    csv_path = data_config['csv_path']
-
-    if custom_augmentations is None:
-        pass
-        #augmentations = [('none', 0), ('none', 90), ('none', 180), ('none', 270), ('horizontal', 0), ('vertical', 0), ('vertical', 90), ('vertical', 270)]
-    else:
-        augmentations = custom_augmentations
+    data_dir_class0 = data_conf['data_dir_lusc']
+    data_dir_class1 = data_conf['data_dir_luad']
+    csv_dir = data_conf['csv_path']
 
     # Read image file names
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_dir)
     df = shuffle(df)
     image_ids = list(df['slide_id'].values)
     labels = df['label'].values.astype('uint8')
 
     # Get paths
-    image_ids_all = []
-    features_path = []
-    distance_map_path = []
-    labels_all = []
-    features_ids_all = []
-    #batch_ids_all = []
+    image_ids_all=[]; features_path=[]; distance_map_path=[]; labels_all=[]; features_ids_all=[]
+
     for i, image_id in enumerate(image_ids):
-        if custom_augmentations is None:
-            l = labels[i]
-            if (l == 0):
-                f_path = os.path.join(data_dir+'/tcga_lusc/normal', '{image_id}.npy'.format(image_id=image_id))
-                dm_path = os.path.join(data_dir+'/tcga_lusc/normal', '{image_id}_distance_map.npy'.format(image_id=image_id))
+            label = labels[i]
+            if label == 0:
+                f_path = os.path.join(data_dir_class0, '{image_id}.npy'.format(image_id=image_id))
+                dm_path = os.path.join(data_dir_class0, '{image_id}_distance_map.npy'.format(image_id=image_id))
                 feature_id = os.path.splitext(os.path.basename(f_path))[0][:-9]
             else:
-                f_path = os.path.join(data_dir+'/tcga_luad/normal','{image_id}.npy'.format(image_id=image_id))
-                dm_path = os.path.join(data_dir+'/tcga_luad/normal', '{image_id}_distance_map.npy'.format(image_id=image_id))
+                f_path = os.path.join(data_dir_class1, '{image_id}.npy'.format(image_id=image_id))
+                dm_path = os.path.join(data_dir_class1, '{image_id}_distance_map.npy'.format(image_id=image_id))
                 feature_id = os.path.splitext(os.path.basename(f_path))[0][:-9]
             image_ids_all.append(image_id)
             features_path.append(f_path)
             distance_map_path.append(dm_path)
-            labels_all.append(l)
+            labels_all.append(label)
             features_ids_all.append(feature_id)
-        else:
-            for flip, rot in augmentations:
-                l = labels[i]
-                if (l == 0):
-                    f_path = os.path.join(data_dir+'/tcga_lusc/augmented', '{image_id}_{rot}_{flip}_features.npy'.format(image_id=image_id, rot=int(rot), flip=str(flip)))
-                    dm_path = os.path.join(data_dir+'/tcga_lusc/augmented', '{image_id}_{rot}_{flip}_features_distance_map.npy'.format(image_id=image_id, rot=int(rot), flip=str(flip)))
-                    feature_id = os.path.splitext(os.path.basename(f_path))[0][:-9]
-                else:
-                    f_path = os.path.join(data_dir+'/tcga_luad/augmented','{image_id}_{rot}_{flip}_features.npy'.format(image_id=image_id, rot=int(rot), flip=str(flip)))
-                    dm_path = os.path.join(data_dir+'/tcga_luad/augmented', '{image_id}_{rot}_{flip}_features_distance_map.npy'.format(image_id=image_id, rot=int(rot),flip=str(flip)))
-                    feature_id = os.path.splitext(os.path.basename(f_path))[0][:-9]
-                image_ids_all.append(image_id)
-                features_path.append(f_path)
-                distance_map_path.append(dm_path)
-                labels_all.append(l)
-                features_ids_all.append(feature_id)
-
-    # Format
-    # labels_all = np.eye(2)[labels_all].astype('uint8')
 
     # Shuffle
     idx = np.random.choice(len(image_ids_all), len(image_ids_all), replace=False)
@@ -126,10 +168,51 @@ def read_data(data_config, custom_augmentations=None):
     features_path = [features_path[i] for i in idx]
     distance_map_path = [distance_map_path[i] for i in idx]
     features_ids_all = [features_ids_all[i] for i in idx]
-    #batch_ids_all = [batch_ids_all[i] for i in idx]
     labels_all = np.array([labels_all[i] for i in idx]).astype('uint8')
 
     return image_ids_all, features_path, distance_map_path, labels_all, features_ids_all
+
+
+def crop_features(features, distance_map, crop_size, deterministic=False, crop_id=None, n_crops=None):
+
+    # Sample center
+    if deterministic:
+        if (crop_id is not None) and (n_crops is not None):
+            distance_map_idxs = np.where(distance_map.flatten() != 0)[0]
+            center = distance_map_idxs[int(len(distance_map_idxs) * (crop_id / n_crops))]
+        else:
+            center = np.argmax(distance_map.flatten())
+        center = np.unravel_index(center, distance_map.shape)
+        x_center, y_center = center
+    else:
+        center = np.random.choice(len(distance_map.flatten()), 1, replace=True, p=distance_map.flatten())
+        center = np.unravel_index(center, distance_map.shape)
+        x_center, y_center = (center[0][0], center[1][0])
+
+    # Crop params
+    x_size = features.shape[0]
+    y_size = features.shape[1]
+    x1 = x_center - crop_size // 2
+    x2 = x_center + crop_size // 2
+    y1 = y_center - crop_size // 2
+    y2 = y_center + crop_size // 2
+
+    # Pad
+    padx1 = np.abs(np.min([0, x1]))
+    padx2 = np.abs(np.min([0, x_size - x2]))
+    pady1 = np.abs(np.min([0, y1]))
+    pady2 = np.abs(np.min([0, y_size - y2]))
+    padding = ((padx1, padx2), (pady1, pady2), (0, 0))
+    features = np.pad(features, padding, 'constant')
+    x1 += padx1
+    x2 += padx1
+    y1 += pady1
+    y2 += pady1
+
+    # Crop
+    features = features[x1:x2, y1:y2, :]
+
+    return features
 
 
 class FeaturizedWsiGenerator(object):
@@ -180,6 +263,7 @@ class FeaturizedWsiGenerator(object):
         self.n_batches = int(np.ceil(self.n_samples / batch_size))
 
         # Print
+        print('FeaturizedWsiGenerator data config: ' + str(data_config), flush=True)
         print('FeaturizedWsiGenerator using {n1} samples and {n2} batches, distributed in {n3} positive and {n4} negative samples.'.format(
                 n1=self.n_samples, n2=self.n_batches, n3=len(self.pos_idx), n4=len(self.neg_idx)
         ), flush=True)
@@ -299,43 +383,6 @@ class FeaturizedWsiGenerator(object):
 
         return x
 
-    def crop_features(features, distance_map, crop_size, deterministic=False):
-
-        # Sample center
-        if deterministic:
-            center = np.argmax(distance_map.flatten())
-            center = np.unravel_index(center, distance_map.shape)
-            x_center, y_center = center
-        else:
-            center = np.random.choice(len(distance_map.flatten()), 1, replace=True, p=distance_map.flatten())
-            center = np.unravel_index(center, distance_map.shape)
-            x_center, y_center = (center[0][0], center[1][0])
-
-        # Crop params
-        x_size = features.shape[0]
-        y_size = features.shape[1]
-        x1 = x_center - crop_size // 2
-        x2 = x_center + crop_size // 2
-        y1 = y_center - crop_size // 2
-        y2 = y_center + crop_size // 2
-
-        # Pad
-        padx1 = np.abs(np.min([0, x1]))
-        padx2 = np.abs(np.min([0, x_size - x2]))
-        pady1 = np.abs(np.min([0, y1]))
-        pady2 = np.abs(np.min([0, y_size - y2]))
-        padding = ((padx1, padx2), (pady1, pady2), (0, 0))
-        features = np.pad(features, padding, 'constant')
-        x1 += padx1
-        x2 += padx1
-        y1 += pady1
-        y2 += pady1
-
-        # Crop
-        features = features[x1:x2, y1:y2, :]
-
-        return features
-
     def assemble_batch(self, idxs):
         """
         Creates a training batch from featurized WSIs on disk. It samples a crop taking distance to background into
@@ -361,11 +408,12 @@ class FeaturizedWsiGenerator(object):
                 features = np.load(self.paths[idx]).astype('float32').transpose((1, 2, 0))
 
                 # Get distance map
-                self.dm_paths[idx] = cache_file(self.dm_paths[idx], self.cache_dir, overwrite=False)
-                distance_map = np.load(self.dm_paths[idx])
+                if self.dm_paths is not None:
+                    self.dm_paths[idx] = cache_file(self.dm_paths[idx], self.cache_dir, overwrite=False)
+                    distance_map = np.load(self.dm_paths[idx])
 
-                # Crop
-                features = self.crop_features(features, distance_map, crop_size=self.crop_size, deterministic=False)
+                    # Crop
+                    features = crop_features(features, distance_map, crop_size=self.crop_size, deterministic=False)
 
                 # Append
                 x.append(features)
@@ -373,8 +421,12 @@ class FeaturizedWsiGenerator(object):
                 # Label
                 y.append(self.labels[idx])
 
+                # print('File {f} with label {l}'.format(f=basename(self.paths[idx]), l=self.labels[idx]), flush=True)
+
             except Exception as e:
-                print('FeaturizedWsiGenerator failed to assemble batch with idx {idx}, skipping sample. Exception: {e}'.format(idx=idx, e=e), flush=True)
+                print(
+                    'FeaturizedWsiGenerator failed to assemble batch with idx {idx}, skipping sample. Exception: {e}'.format(
+                        idx=idx, e=e), flush=True)
 
         # Fill
         if len(x) < len(idxs):
@@ -386,7 +438,10 @@ class FeaturizedWsiGenerator(object):
 
         # Concat
         x = np.stack(x, axis=0)
-        y = np.eye(2)[y]
+        if self.binary_target:
+            y = np.eye(2)[np.array(y, dtype='int')]
+        else:
+            y = np.array(y)
 
         return x, y
 
@@ -417,6 +472,32 @@ class FeaturizedWsiGenerator(object):
 
         return x, y
 
+
+root_dir=  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction'
+data_dir_luad =  root_dir + r'\results\tcga\featurized\tcga_luad\normal'
+data_dir_lusc =  root_dir + r'\results\tcga\featurized\tcga_lusc\normal'
+csv_path      =  root_dir+'/data/tcga/slide_list_tcga.csv'
+output_dir    =   root_dir+'/results/tcga/model'
+
+data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path}
+
+image_ids_all, features_path, distance_map_path, labels_all, features_ids_all = read_data(data_config)
+
+
+print('Loading training set ...', flush=True)
+training_gen = FeaturizedWsiGenerator(
+    data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path},
+    data_fn=read_data,
+    batch_size=32,
+    augment=False,
+    crop_size=400,
+    cache_dir=None,
+    balanced=True,
+    keep_data=1,
+    occlusion_augmentation=None,
+    elastic_augmentation=None,
+    shuffle_augmentation=None
+)
 
 class FeaturizedWsiSequence(keras.utils.Sequence):
     """
@@ -697,9 +778,10 @@ def build_wsi_classifier(input_shape, lr, output_units):
 
 
 root_dir=  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction'
-data_dir =  root_dir+'/results/tcga/featurized'
-csv_path =  root_dir+'/data/tcga/slide_list_tcga.csv'
-output_dir =   root_dir+'/results/tcga/model'
+data_dir_luad =  root_dir + r'\results\tcga\featurized\tcga_luad\normal'
+data_dir_lusc =  root_dir + r'\results\tcga\featurized\tcga_lusc\normal'
+csv_path      =  root_dir+'/data/tcga/slide_list_tcga.csv'
+output_dir    =   root_dir+'/results/tcga/model'
 
 # Training set
 batch_size =32
@@ -707,17 +789,16 @@ cache_dir = None
 keep_data_training=1
 occlusion_augmentation=False; elastic_augmentation=False; shuffle_augmentation=None;
 
-data_config={'data_dir': data_dir, 'csv_path': csv_path}
+data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path}
 
-image_ids_all, features_path, distance_map_path, labels_all, features_ids_all = read_data(data_config, custom_augmentations=None)
-
-
+image_ids_all, features_path, distance_map_path, labels_all, features_ids_all = read_data(data_config)
 
 
-#%%
+
+
 print('Loading training set ...', flush=True)
 training_gen = FeaturizedWsiGenerator(
-    data_config={'data_dir': data_dir, 'csv_path': csv_path},
+    data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path},
     data_fn=read_data,
     batch_size=batch_size,
     augment=True,
@@ -730,20 +811,21 @@ training_gen = FeaturizedWsiGenerator(
     shuffle_augmentation=shuffle_augmentation
 )
 
+#%%
 crop_size=400
 code_size=128
 lr=1e-2
 output_units=1
 
 
-keep_data_validation=1.0
+keep_data_validation=0.60
 #from nic.train_compressed_wsi import FeaturizedWsiSequence
 
 # Validation set
 print('Loading validation set ...', flush=True)
 use_validation = True
 validation_gen = FeaturizedWsiSequence(
-    data_config={'data_dir': data_dir, 'csv_path': csv_path},
+    data_config={'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_path},
     data_fn=read_data,
     batch_size=batch_size,
     crop_size=400,
@@ -751,8 +833,8 @@ validation_gen = FeaturizedWsiSequence(
     balanced=True,
     keep_data=keep_data_validation
 )if use_validation else None
-#%%
 
+#%%
 # Create model
 print('Building model ...', flush=True)
 model=None
@@ -768,7 +850,7 @@ crop_size=400
 code_size=128
 lr=1e-2
 output_units=1
-n_epochs=200
+n_epochs=2
 batch_size=32
 lr=1e-2
 code_size=128

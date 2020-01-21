@@ -1,3 +1,7 @@
+# Ignore data on folder
+data/tcga_luad/*
+data/tcga_lusc/*
+
 # Ignore nic repo
 neural-image-compression-private/*
 

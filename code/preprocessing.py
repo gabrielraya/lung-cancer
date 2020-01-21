@@ -4,10 +4,11 @@ import os, sys
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 
-def create_csv(data_dir1, data_dir0, csv_path):
+
+def create_csv(dir_class1, ddir_class0, csv_path, ext='.png'):
     """
-    Creates csv file with slide names and corresponding labels from two given
-    folders with wsi already featurized.
+    Creates csv file with slide names and labels.
+    Class 1 is assinged to data from data_dir_class1
 
     Parameters
     ----------
@@ -18,17 +19,20 @@ def create_csv(data_dir1, data_dir0, csv_path):
     Output
     ----------
     csv file with labels and slide names
-            labels 1 correspond to LUAD
-            labesl 0 correspond to LUSC
+
+    Examples : create_csv(dir_luad, dir_lusc, csv_path)
+    -----
+    labesl 1 correspond to class 1 (LUAD)
+    labesl 0 correspond to class 0 (LUSC)
     """
 
-    image_files1 = sorted([(os.path.basename(file)).split('.')[0] for file in tqdm(os.listdir(data_dir1)) if file.endswith('.png')])
-    image_files0 = sorted([(os.path.basename(file)).split('.')[0] for file in tqdm(os.listdir(data_dir0)) if file.endswith('.png')])
-    labels1 = np.ones(len(image_files1), dtype=np.int8)
-    labels0 = np.zeros(len(image_files0), dtype=np.int8)
+    files_class_1 = sorted([(os.path.basename(file)).split('.')[0] for file in tqdm(os.listdir(dir_class1)) if file.endswith(ext)])
+    files_class_0 = sorted([(os.path.basename(file)).split('.')[0] for file in tqdm(os.listdir(ddir_class0)) if file.endswith(ext)])
+    labels1 = np.ones(len(files_class_1), dtype=np.int8)
+    labels0 = np.zeros(len(files_class_0), dtype=np.int8)
 
-    df1 = pd.DataFrame(list(zip(image_files1, labels1)), columns=['slide_id', 'label'])
-    df0 = pd.DataFrame(list(zip(image_files0, labels0)), columns=['slide_id', 'label'])
+    df1 = pd.DataFrame(list(zip(files_class_1, labels1)), columns=['slide_id', 'label'])
+    df0 = pd.DataFrame(list(zip(files_class_0, labels0)), columns=['slide_id', 'label'])
 
     # conacatenate dataframes
     data = pd.concat([df1, df0], ignore_index=True, )
@@ -36,7 +40,7 @@ def create_csv(data_dir1, data_dir0, csv_path):
     print('Csv file sucessfully exported!')
 
 
-def generate_csv_files(csv_dir, csv_train_dir, csv_test_dir, split=0.2):
+def split_csv_file(csv_dir, csv_train_dir, csv_test_dir, split=0.2):
     """
     Split a csv file into random train and test subset with for a given split
 
@@ -53,10 +57,8 @@ def generate_csv_files(csv_dir, csv_train_dir, csv_test_dir, split=0.2):
     """
 
     df = pd.read_csv(csv_dir)
-    X = df['slide_id']
-    y = df['label']
     # split the data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=split, random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(df['slide_id'], df['label'], test_size=split, random_state=0)
     # create train csv files
     df = pd.DataFrame(pd.concat([X_train, y_train], axis=1))
     df.to_csv(csv_train_dir, index=None, header=True)
@@ -65,7 +67,7 @@ def generate_csv_files(csv_dir, csv_train_dir, csv_test_dir, split=0.2):
     df.to_csv(csv_test_dir, index=None, header=True)
 
 
-def split_train_tes_val(csv_path, csv_train, csv_valid, csv_test, test_size=0.2, validation_size = 0.3):
+def generate_csv_files(csv_path, csv_train, csv_valid, csv_test, test_size=0.2, validation_size = 0.3):
     """
     Creates a complete test, train, validation split given the main csv data file.
 
@@ -79,9 +81,9 @@ def split_train_tes_val(csv_path, csv_train, csv_valid, csv_test, test_size=0.2,
     """
 
     # split data into train and test of test_size split
-    generate_csv_files(csv_path, csv_train, csv_test, split=test_size)
+    split_csv_file(csv_path, csv_train, csv_test, split=test_size)
     # split data into train and test of test_size split
-    generate_csv_files(csv_train, csv_train, csv_val, split=validation_size)
+    split_csv_file(csv_train, csv_train, csv_val, split=validation_size)
     print('Train/validation/test csv files sucessfully exported!')
 
 
@@ -89,14 +91,20 @@ if __name__ == '__main__':
     """
     Generates csv files to train the network given the paths where the featurize images are.
     """
+    cluster = 0
 
-    # featurize wsi directory for TCGA dataset
-    dir_luad =  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction\results\tcga\featurized\tcga_luad\normal'
-    dir_lusc =  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction\results\tcga\featurized\tcga_lusc\normal'
-    # featurize wsi with augmentations directory for TCGA dataset
-    dir_luad_aug =  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction\results\tcga\featurized\tcga_luad\augmented'
-    dir_lusc_aug =  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction\results\tcga\featurized\tcga_lusc\augmented'
+    if cluster:
+        # featurize wsi directory for TCGA dataset
+        dir_luad =  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction\results\tcga\featurized\tcga_luad\normal'
+        dir_lusc =  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction\results\tcga\featurized\tcga_lusc\normal'
+        # featurize wsi with augmentations directory for TCGA dataset
+        # dir_luad_aug =  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction\results\tcga\featurized\tcga_luad\augmented'
+        # dir_lusc_aug =  r'Z:\projects\pathology-lung-cancer-weak-growth-pattern-prediction\results\tcga\featurized\tcga_lusc\augmented'
 
+    else:
+        # local test
+        dir_luad =  r'E:\pathology-weakly-supervised-lung-cancer-growth-pattern-prediction\results\tcga_luad\results\featurized'
+        dir_lusc =  r'E:\pathology-weakly-supervised-lung-cancer-growth-pattern-prediction\results\tcga_lusc\results\featurized'
 
     ######### Adjust this directories according where your project is ##########
     root_dir=  r'E:\pathology-weakly-supervised-lung-cancer-growth-pattern-prediction'
@@ -110,10 +118,10 @@ if __name__ == '__main__':
 
     print('Creating main csv data files ...')
     create_csv(dir_luad, dir_lusc, csv_path)
-    create_csv(dir_luad_aug, dir_lusc_aug, csv_path_aug)
+    #create_csv(dir_luad_aug, dir_lusc_aug, csv_path_aug)
 
     print('Creating split train/validation/test csv files with no augmentations ...')
-    split_train_tes_val(csv_path, csv_train, csv_val, csv_test, test_size=0.2, validation_size = 0.3)
+    generate_csv_files(csv_path, csv_train, csv_val, csv_test, test_size=0.2, validation_size = 0.3)
 
     # read files to check shapes
     df = pd.read_csv(csv_train);  df2 = pd.read_csv(csv_val);   df3 = pd.read_csv(csv_test)

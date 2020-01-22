@@ -1,9 +1,15 @@
+# Ignore for now training results and csv files
+results/model*/
+data/*.csv
+
 # Ignore data on folder
 data/tcga_luad/*
 data/tcga_lusc/*
+results/tcga_luad/
+results/tcga_lusc/
 
 # Ignore nic repo
-neural-image-compression-private/*
+code/neural-image-compression-private/*
 
 ### Jupyter Notebooks ###
 .ipynb_checkpoints

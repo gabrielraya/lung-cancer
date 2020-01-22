@@ -83,7 +83,7 @@ def generate_csv_files(csv_path, csv_train, csv_valid, csv_test, test_size=0.2, 
     # split data into train and test of test_size split
     split_csv_file(csv_path, csv_train, csv_test, split=test_size)
     # split data into train and test of test_size split
-    split_csv_file(csv_train, csv_train, csv_val, split=validation_size)
+    split_csv_file(csv_train, csv_train, csv_valid, split=validation_size)
     print('Train/validation/test csv files sucessfully exported!')
 
 
@@ -103,8 +103,8 @@ if __name__ == '__main__':
 
     else:
         # local test
-        dir_luad =  r'E:\pathology-weakly-supervised-lung-cancer-growth-pattern-prediction\results\tcga_luad\results\featurized'
-        dir_lusc =  r'E:\pathology-weakly-supervised-lung-cancer-growth-pattern-prediction\results\tcga_lusc\results\featurized'
+        dir_luad =  r'E:\pathology-weakly-supervised-lung-cancer-growth-pattern-prediction\results\tcga_luad\featurized'
+        dir_lusc =  r'E:\pathology-weakly-supervised-lung-cancer-growth-pattern-prediction\results\tcga_lusc\featurized'
 
     ######### Adjust this directories according where your project is ##########
     root_dir=  r'E:\pathology-weakly-supervised-lung-cancer-growth-pattern-prediction'

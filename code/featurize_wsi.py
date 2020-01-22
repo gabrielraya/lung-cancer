@@ -20,11 +20,8 @@ sys.path.append(nic_dir +'/source')
 
 import os
 import keras
+from utils import check_file_exists, get_file_list
 from nic.featurize_wsi import encode_wsi_npy_simple, encode_augment_wsi
-
-
-def get_file_list(path, ext=''):
-    return sorted([os.path.join(path, f) for f in os.listdir(path) if f.endswith(ext)])
 
 
 def downsample_encoder_128_to_64(encoder):
@@ -35,16 +32,7 @@ def downsample_encoder_128_to_64(encoder):
     return encoder_ds
 
 
-def check_file_exists(filename):
-    try:
-        f = open(filename, 'r')
-        f.close()
-        return True
-    except IOError:
-        return False
-
-
-def featurize_images(input_dir, model_path, output_dir, batch_size):
+def featurize_images(input_dir, model_path, output_dir, batch_size, downsample_encoder=True):
     """
     Featurizes vectorized of whole-slide images using a trained encoder network.
 
@@ -52,12 +40,21 @@ def featurize_images(input_dir, model_path, output_dir, batch_size):
     :param model_path: path to trained encoder network.
     :param output_dir: destination folder to store the compressed images.
     :param batch_size: number of images to process in the GPU in one-go.
+    :param downsample_encoder: if true downsample image from 128 to 64
+    :return: nothing
     """
+
+    # Output dir
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
+    # Load encoder model
     encoder = keras.models.load_model(model_path, compile=False)
-    encoder = downsample_encoder_128_to_64(encoder)  # downsample image, needed for bigan encoder.
+
+    # Downsample image to fit encoder needed for bigan encoder
+    if downsample_encoder:
+        encoder = downsample_encoder_128_to_64(encoder)
+
     image_list = get_file_list(input_dir, ext='_{item}.png')
     total_images = len(image_list)
 
@@ -75,20 +72,29 @@ def featurize_images(input_dir, model_path, output_dir, batch_size):
     print('Finish Processing All images!')
 
 
-def featurize_images_augmented(input_dir, model_path, output_dir, batch_size):
+def featurize_images_augmented(input_dir, model_path, output_dir, batch_size, downsample_encoder=True):
     """
-    Compresses a set of whole-slide images using a trained encoder network.
+    Compresses a set of whole-slide aumented images using a trained encoder network.
 
     :param input_dir: directory containing the vectorized images.
     :param model_path: path to trained encoder network.
     :param output_dir: destination folder to store the compressed images.
     :param batch_size: number of images to process in the GPU in one-go.
+    :param downsample_encoder: if true downsample image from 128 to 64
+    :return: nothing
     """
+
+    # Output dir
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
+    # Load encoder model
     encoder = keras.models.load_model(model_path, compile=False)
-    encoder = downsample_encoder_128_to_64(encoder)  # downsample image, needed for bigan encoder.
+
+    # Downsample image to fit encoder needed for bigan encoder
+    if downsample_encoder:
+        encoder = downsample_encoder_128_to_64(encoder)
+
     image_list = get_file_list(input_dir, ext='_{item}.png')
     total_images = len(image_list)
 
@@ -106,8 +112,6 @@ def featurize_images_augmented(input_dir, model_path, output_dir, batch_size):
         else:
             print('Vectorized file not found: {f}'.format(f=wsi_pattern.format(item='im_shape')), flush=True)
     print('Finish Processing All images!')
-
-
 
 
 if __name__ == '__main__':

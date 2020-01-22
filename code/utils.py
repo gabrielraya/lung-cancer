@@ -2,6 +2,22 @@ import os
 import shutil
 
 
+def check_file_exists(filename):
+    """ Test whether a path exists.  Returns False for broken symbolic links
+    Replace os.path.exits functionality as it does not work in the cluster.
+    """
+    try:
+        f = open(filename, 'r')
+        f.close()
+        return True
+    except IOError:
+        return False
+
+
+def get_file_list(path, ext=''):
+    return sorted([os.path.join(path, f) for f in os.listdir(path) if f.endswith(ext)])
+
+
 def delete_entire_directory(trash_dir):
     try:
         shutil.rmtree(trash_dir)

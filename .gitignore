@@ -1,6 +1,7 @@
 # Ignore for now training results and csv files
 results/model*/
 data/*.csv
+debug/
 
 # Ignore data on folder
 data/tcga_luad/*

@@ -4,6 +4,28 @@ import os, sys
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 
+def data_to_csv(data_dir, csv_path, ext='.png'):
+    """
+    Creates csv file from data folder
+
+    Parameters
+    ----------
+    data_dir : data folder
+
+    Output
+    ----------
+    csv file with labels as 1 and slide names
+
+    Example: create_csv(featurized_luad_dir, csv_path)
+    -----
+    """
+
+    files_class_1 = sorted([(os.path.basename(file)).split('.')[0] for file in tqdm(os.listdir(data_dir)) if file.endswith(ext)])
+    labels1 = np.ones(len(files_class_1), dtype=np.int8)
+    df1 = pd.DataFrame(list(zip(files_class_1, labels1)), columns=['slide_id', 'label'])
+    df1.to_csv(csv_path, index=None, header=True)
+    print('Csv file sucessfully exported!')
+
 
 def create_csv(dir_class1, ddir_class0, csv_path, ext='.png'):
     """

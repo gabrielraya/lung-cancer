@@ -155,7 +155,7 @@ def gradcam_on_features(features_path, distance_map_path, gradient_function, out
     return output_npy_path.format(preds=preds), output_png_path.format(preds=preds)
 
 
-def gradcam_on_dataset(*featurized_dir, csv_path, partitions, model_path, layer_name, custom_objects=None,
+def gradcam_on_dataset(data_dir, csv_path, partitions, model_path, layer_number=1, custom_objects=None,
                        cache_dir=None, images_dir=None, vectorized_dir=None, output_dir=None, predict_two_output=True):
     """
     Applies GradCAM to a set of images.
@@ -164,7 +164,7 @@ def gradcam_on_dataset(*featurized_dir, csv_path, partitions, model_path, layer_
     :param csv_path: list of slides.
     :param partitions: list of partitions to select slides.
     :param model_path: path to trained model.
-    :param layer_name: name of convolutional layer used to compute GradCAM.
+    :param layer_number: number of convolutional layer used to compute GradCAM.
     :param output_unit: output unit in the final layer of the network to compute GradCAM.
     :param custom_objects: used to load the model.
     :param cache_dir: folder to store compressed images temporarily.
@@ -172,7 +172,8 @@ def gradcam_on_dataset(*featurized_dir, csv_path, partitions, model_path, layer_
     """
 
     # Output dir
-    output_dir = join(dirname(model_path), 'gradcam') if output_dir is None else output_dir
+    output_dir = join(result_dir, 'gradcam') if output_dir is None else output_dir
+
     if not exists(output_dir):
         os.makedirs(output_dir)
 
@@ -182,31 +183,41 @@ def gradcam_on_dataset(*featurized_dir, csv_path, partitions, model_path, layer_
     ), flush=True)
 
     # List features
-    data_config = {'data_dir_luad': featurized_dir[0], 'data_dir_lusc': featurized_dir[1], 'csv_path': csv_path}
+    data_config = {'data_dir_luad': data_dir[0], 'data_dir_lusc': data_dir[1], 'csv_path': csv_path}
     image_ids, paths, dm_paths, labels, features_ids = read_data(data_config, custom_augmentations=None)
 
-    # Load model and gradient function
-    K.set_learning_phase(0)  # required to avoid bug "You must feed a value for placeholder tensor 'batch_normalization_1/keras_learning_phase' with dtype bool"
-    model = keras.models.load_model(model_path, custom_objects=custom_objects)
+    # Load model
+    K.set_learning_phase(
+        0)  # required to avoid bug "You must feed a value for placeholder tensor 'batch_normalization_1/keras_learning_phase' with dtype bool"
+    model = keras.models.load_model(model_path, custom_objects=None)
+
+    # get firt layer name
+    layer_name = model.layers[1].name
+
+    # Load gradient function
     gradient_function_0 = grad_cam_fn(model, 0, layer_name)
+
     if predict_two_output:
         gradient_function_1 = grad_cam_fn(model, 1, layer_name)
     else:
         gradient_function_1 = None
 
     # Analyze features
-    for i, (image_id, path, dm_path, label, features_id) in enumerate(zip(image_ids, paths, dm_paths, labels, features_ids)):
+    for i, (image_id, path, dm_path, label, features_id) in enumerate(
+            zip(image_ids, paths, dm_paths, labels, features_ids)):
 
         try:
             print('Computing GradCAM on {filename} ... {i}/{n}'.format(
-                    filename=features_id, i=i+1, n=len(image_ids)), flush=True)
+                filename=features_id, i=i + 1, n=len(image_ids)), flush=True)
 
             output_npy_path0, output_png_path0 = gradcam_on_features(
                 features_path=cache_file(path, cache_dir, overwrite=False),
                 distance_map_path=cache_file(dm_path, cache_dir, overwrite=False),
                 gradient_function=gradient_function_0,
-                output_npy_path=join(output_dir, features_id + '_{unit}_{preds}_gradcam.npy'.format(unit=0, preds='{preds:0.3f}')),
-                output_png_path=join(output_dir, features_id + '_{unit}_{preds}_gradcam.png'.format(unit=0, preds='{preds:0.3f}')),
+                output_npy_path=join(output_dir,
+                                     features_id + '_{unit}_{preds}_gradcam.npy'.format(unit=0, preds='{preds:0.3f}')),
+                output_png_path=join(output_dir,
+                                     features_id + '_{unit}_{preds}_gradcam.png'.format(unit=0, preds='{preds:0.3f}')),
             )
 
             if predict_two_output:
@@ -214,14 +225,15 @@ def gradcam_on_dataset(*featurized_dir, csv_path, partitions, model_path, layer_
                     features_path=cache_file(path, cache_dir, overwrite=False),
                     distance_map_path=cache_file(dm_path, cache_dir, overwrite=False),
                     gradient_function=gradient_function_1,
-                    output_npy_path=join(output_dir, features_id + '_{unit}_{preds}_gradcam.npy'.format(unit=1, preds='{preds:0.3f}')),
-                    output_png_path=join(output_dir, features_id + '_{unit}_{preds}_gradcam.png'.format(unit=1, preds='{preds:0.3f}')),
+                    output_npy_path=join(output_dir, features_id + '_{unit}_{preds}_gradcam.npy'.format(unit=1,
+                                                                                                        preds='{preds:0.3f}')),
+                    output_png_path=join(output_dir, features_id + '_{unit}_{preds}_gradcam.png'.format(unit=1,
+                                                                                                        preds='{preds:0.3f}')),
                 )
-
 
             if (images_dir is not None) and (vectorized_dir is not None):
                 image_crop_from_wsi(
-                    wsi_path=join(images_dir, image_id + '.mrxs'),
+                    wsi_path=join(images_dir, image_id + '.tif'),
                     vectorized_im_shape_path=join(vectorized_dir, image_id + '_im_shape.npy'),
                     distance_map_path=cache_file(dm_path, cache_dir, overwrite=False),
                     output_npy_path=join(output_dir, features_id + '_image.npy'),
@@ -229,25 +241,26 @@ def gradcam_on_dataset(*featurized_dir, csv_path, partitions, model_path, layer_
                     crop_size=400
                 )
 
+            overlay_gradcam_heatmap(
+                gradcam_npy_path=output_npy_path0,
+                image_npy_path=join(output_dir, features_id + '_image.npy'),
+                output_png_path=join(output_dir, features_id + '_{unit}_heatmap.png'.format(unit=0))
+            )
+
+            if predict_two_output:
                 overlay_gradcam_heatmap(
-                    gradcam_npy_path=output_npy_path0,
+                    gradcam_npy_path=output_npy_path1,
                     image_npy_path=join(output_dir, features_id + '_image.npy'),
-                    output_png_path=join(output_dir, features_id + '_{unit}_heatmap.png'.format(unit=0))
+                    output_png_path=join(output_dir, features_id + '_{unit}_heatmap.png'.format(unit=1))
                 )
 
-                if predict_two_output:
-                    overlay_gradcam_heatmap(
-                        gradcam_npy_path=output_npy_path1,
-                        image_npy_path=join(output_dir, features_id + '_image.npy'),
-                        output_png_path=join(output_dir, features_id + '_{unit}_heatmap.png'.format(unit=1))
-                    )
+                overlay_gradcam_heatmap_bicolor(
+                    gradcam_npy_path1=output_npy_path0,
+                    gradcam_npy_path2=output_npy_path1,
+                    image_npy_path=join(output_dir, features_id + '_image.npy'),
+                    output_png_path=join(output_dir, features_id + '_both_heatmap.png')
+                )
 
-                    overlay_gradcam_heatmap_bicolor(
-                        gradcam_npy_path1=output_npy_path0,
-                        gradcam_npy_path2=output_npy_path1,
-                        image_npy_path=join(output_dir, features_id + '_image.npy'),
-                        output_png_path=join(output_dir, features_id + '_both_heatmap.png')
-                    )
         except Exception as e:
             print('Failed to compute GradCAM on {f}. Exception: {e}'.format(f=path, e=e), flush=True)
 

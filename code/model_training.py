@@ -19,7 +19,7 @@ if cluster:
     os.system('cp /mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/tcga/featurized/tcga_lusc/normal/* ./tcga_lusc')
     # Import NIC to python path
     import sys
-    nic_dir = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/code/neural-image-compression-private'
+    nic_dir = '/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/neural-image-compression-private'
     sys.path.append(nic_dir +'/source')
 
 import keras

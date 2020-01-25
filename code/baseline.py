@@ -6,11 +6,11 @@ nic_dir = '/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-can
 sys.path.append(nic_dir + '/source')
 
 # Copy data
-print('Copying data to local instance')
-os.system('mkdir /home/user/featurized_tcga_luad/')
-os.system('mkdir /home/user/featurized_tcga_lusc/')
-os.system('cp /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_luad/featurized/no_augmentations/* /home/user/featurized_tcga_luad')
-os.system('cp /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_lusc/featurized/no_augmentations/* /home/user/featurized_tcga_lusc')
+# print('Copying data to local instance')
+# os.system('mkdir /home/user/featurized_tcga_luad/')
+# os.system('mkdir /home/user/featurized_tcga_lusc/')
+# os.system('cp -r /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_luad/featurized/no_augmentations/ /home/user/featurized_tcga_luad')
+# os.system('cp -r /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_lusc/featurized/no_augmentations/ /home/user/featurized_tcga_lusc')
 
 import numpy as np
 import pandas as pd
@@ -95,6 +95,12 @@ def train_model(featurized_dir, csv_path, fold_n, output_dir, cache_dir, batch_s
 
 
 if __name__ == '__main__':
+
+    # Get parameters
+    batch_size = int(sys.argv[1])
+    epochs = int(sys.argv[2])
+    result_dir_name = sys.argv[3]
+
     # project and data directories
     root_dir = r'/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction'
     data_dir = r'/mnt/netcache/pathology/archives/lung'
@@ -112,7 +118,7 @@ if __name__ == '__main__':
     featurized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'featurized', 'no_augmentations')
 
     # results directory
-    result_dir = join(root_dir, 'results', 'model')  # store the results from trained model
+    result_dir = join(root_dir, 'results', 'models', result_dir_name)  # store the results from trained model
     gradcam_dir = join(result_dir, 'gradcam')  # store gradcam results
 
     # Set paths
@@ -126,7 +132,7 @@ if __name__ == '__main__':
     csv_path_wsi = os.path.join(root_dir, 'data', 'slide_original_list_tcga.csv')
     csv_path_compressed_wsi = os.path.join(root_dir, 'data', 'slide_compressed_list_tcga.csv')
 
-    cache_dir = None  # used to store local copies of files during I/O operations (useful in cluster
+    cache_dir = '/home/user/'   # used to store local copies of files during I/O operations (useful in cluster
 
 
     # Train CNN
@@ -154,8 +160,8 @@ if __name__ == '__main__':
         fold_n=0,
         output_dir=result_dir,
         cache_dir=None,
-        batch_size=12,
-        epochs=100,
+        batch_size=batch_size,
+        epochs=epochs,
         delete_folder=True,
         occlusion_augmentation=False,
         lr=1e-2,

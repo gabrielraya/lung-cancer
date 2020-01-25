@@ -1,5 +1,7 @@
 # Ignore for now training results and csv files
-results/model*/
+results/models/
+scripts/
+results/mini_tcga/
 data/*.csv
 debug/
 

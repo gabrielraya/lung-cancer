@@ -27,7 +27,7 @@ def data_to_csv(data_dir, csv_path, ext='.png'):
     print('Csv file sucessfully exported!')
 
 
-def create_csv(dir_class1, ddir_class0, csv_path, ext='.png'):
+def create_csv(dir_class1, dir_class0, csv_path, ext='.png'):
     """
     Creates csv file with slide names and labels.
     Class 1 is assinged to data from data_dir_class1
@@ -49,7 +49,7 @@ def create_csv(dir_class1, ddir_class0, csv_path, ext='.png'):
     """
 
     files_class_1 = sorted([(os.path.basename(file)).split('.')[0] for file in tqdm(os.listdir(dir_class1)) if file.endswith(ext)])
-    files_class_0 = sorted([(os.path.basename(file)).split('.')[0] for file in tqdm(os.listdir(ddir_class0)) if file.endswith(ext)])
+    files_class_0 = sorted([(os.path.basename(file)).split('.')[0] for file in tqdm(os.listdir(dir_class0)) if file.endswith(ext)])
     labels1 = np.ones(len(files_class_1), dtype=np.int8)
     labels0 = np.zeros(len(files_class_0), dtype=np.int8)
 

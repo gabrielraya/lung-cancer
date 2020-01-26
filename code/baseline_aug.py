@@ -5,12 +5,12 @@ import os
 nic_dir = '/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/neural-image-compression-private'
 sys.path.append(nic_dir + '/source')
 
-# Copy data
+# # Copy data
 # print('Copying data to local instance')
 # os.system('mkdir /home/user/featurized_tcga_luad/')
 # os.system('mkdir /home/user/featurized_tcga_lusc/')
-# os.system('cp -r /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_luad/featurized/no_augmentations/ /home/user/featurized_tcga_luad')
-# os.system('cp -r /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_lusc/featurized/no_augmentations/ /home/user/featurized_tcga_lusc')
+# os.system('cp /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_luad/featurized/augmented/ /home/user/featurized_tcga_luad')
+# os.system('cp /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_lusc/featurized/augmented/ /home/user/featurized_tcga_lusc')
 
 import numpy as np
 import pandas as pd
@@ -114,8 +114,8 @@ if __name__ == '__main__':
     # compressed image directories
     vectorized_luad_dir = join(root_dir, 'results', 'tcga_luad', 'vectorized')
     vectorized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'vectorized')
-    featurized_luad_dir = join(root_dir, 'results', 'tcga_luad', 'featurized', 'no_augmentations')
-    featurized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'featurized', 'no_augmentations')
+    featurized_luad_dir = join(root_dir, 'results', 'tcga_luad', 'featurized', 'augmented')
+    featurized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'featurized', 'augmented')
 
     # results directory
     result_dir = join(root_dir, 'results', 'models', result_dir_name)  # store the results from trained model
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     csv_path_compressed_wsi = os.path.join(root_dir, 'data', 'slide_compressed_list_tcga.csv')
 
     os.system('mkdir /home/user/data')
-    cache_dir = '/home/user/data'   # used to store local copies of files during I/O operations (useful in cluster
+    cache_dir = '/home/user/data'  # used to store local copies of files during I/O operations (useful in cluster
 
     # Train CNN
 
@@ -144,15 +144,15 @@ if __name__ == '__main__':
 
     # Create csv files
     print('Creating compressed wsi csv file ...')
-    create_csv(featurized_luad_dir, featurized_lusc_dir, csv_path_compressed_wsi)
+    create_csv(dir_luad_wsi, dir_lusc_wsi, csv_path_compressed_wsi, 'tif')
 
-    print('Creating split train/validation/test csv files with no augmentations ...')
-    generate_csv_files(csv_path_compressed_wsi, csv_train, csv_val, csv_test, test_size=0.2, validation_size = 0.3)
+    print('Creating split train/validation/test csv files with augmentations ...')
+    generate_csv_files(csv_path_compressed_wsi, csv_train, csv_val, csv_test, test_size=0.2, validation_size=0.3)
 
     # read files to check shapes
     df = pd.read_csv(csv_train);  df2 = pd.read_csv(csv_val);   df3 = pd.read_csv(csv_test)
     print(f'Files were read with shapes: Training: {df.shape}, Validation {df2.shape}, Testing {df3.shape}')
-    print(f'Total files: Files were read with shapes: {df.shape[0]+df2.shape[0]+df3.shape[0]}')
+    print(f'Total files: Files were read with shapes: {df.shape[0] + df2.shape[0] + df3.shape[0]}')
 
     train_model(
         featurized_dir=featurized_dir,
@@ -175,7 +175,7 @@ if __name__ == '__main__':
     print('GradCam will be apply to this dataset!')
     data_to_csv(featurized_luad_dir, csv_path_luad_feat)
 
-    # Apply GradCam on layer 1
+   # Apply GradCam on layer 1
     gradcam_on_dataset(
         data_dir=[featurized_luad_dir, featurized_lusc_dir],
         csv_path=csv_path_luad_feat,

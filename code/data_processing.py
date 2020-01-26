@@ -19,6 +19,9 @@ def read_data(data_config, custom_augmentations=None):
         image_ids_all, features_path, distance_map_path, labels_all, features_ids_all
     """
 
+    # Set augmentations : Comment this line to run baseline without augmentations
+    custom_augmentations = [('none', 0), ('none', 90), ('none', 180), ('none', 270), ('horizontal', 0), ('vertical', 0), ('vertical', 90), ('vertical', 270)]
+
     # Get params
     data_dir_class1 = data_config['data_dir_luad']
     data_dir_class0 = data_config['data_dir_lusc']

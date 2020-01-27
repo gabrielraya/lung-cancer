@@ -122,7 +122,8 @@ if __name__ == '__main__':
     gradcam_dir = join(result_dir, 'gradcam')  # store gradcam results
 
     # Set paths
-    model_path = './neural-image-compression-private/models/encoders_patches_pathology/encoder_bigan.h5'
+    #model_path = './neural-image-compression-private/models/encoders_patches_pathology/encoder_bigan.h5'
+    model_path = r'/mnt/netcache/pathology/projects/pathology-proacting/neoadjuvant_nki/nic/encoder_zoo/supervsied_enc_2019_4tasks.h5'
     csv_train = os.path.join(root_dir, 'data', 'train_slide_list_tcga.csv')
     csv_val = os.path.join(root_dir, 'data', 'validation_slide_list_tcga.csv')
     csv_test = os.path.join(root_dir, 'data', 'test_slide_list_tcga.csv')

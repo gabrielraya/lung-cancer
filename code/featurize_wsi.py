@@ -160,5 +160,5 @@ if __name__ == '__main__':
         featurize_images_augmented(vectorized_lusc_dir, model_path, featurized_lusc_dir_aug, batch_size=32)
     else:
         print(f'Running featurizing with no augmentations using {encoders[bigan]} encoder')
-        featurize_images(vectorized_luad_dir, model_path, featurized_luad_dir_aug, batch_size=32)
-        featurize_images(vectorized_lusc_dir, model_path, featurized_lusc_dir_aug, batch_size=32)
+        featurize_images(vectorized_luad_dir, model_path, featurized_luad_dir, batch_size=32)
+        featurize_images(vectorized_lusc_dir, model_path, featurized_lusc_dir, batch_size=32)

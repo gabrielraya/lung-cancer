@@ -19,6 +19,7 @@ nic_dir = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pa
 sys.path.append(nic_dir +'/source')
 
 import os
+from os.path import join
 import keras
 from utils import check_file_exists, get_file_list
 from nic.featurize_wsi import encode_wsi_npy_simple, encode_augment_wsi
@@ -117,12 +118,47 @@ def featurize_images_augmented(input_dir, model_path, output_dir, batch_size, do
 if __name__ == '__main__':
     """
     To run the scrip just change the data_dir name
+    
+    The following will run bigan encoder with augmentations:
+        
+            python3 featurize_wsi.py 1 1
+            
+    The following will run 4task encoder with no augmentations:
+        
+            python3 featurize_wsi.py 0 0       
     """
-    model_path = nic_dir + '/models/encoders_patches_pathology/encoder_bigan.h5'
-    data_dir = '/mnt/netcache/pathology/archives/lung/TCGA/TCGA_LUAD/'
-    input_dir =  data_dir + 'results/vectorized'
-    #output_dir = data_dir + 'results/featurized'
-    output_dir_aug = data_dir + 'results/featurized_augmented'
+    # Get parameters
+    bigan = int(sys.argv[1])
+    augmented = int(sys.argv[2])
 
-    #featurize_images(input_dir, model_path, output_dir, batch_size=32)
-    featurize_images_augmented(input_dir, model_path, output_dir_aug, batch_size=32)
+    # project and data directories
+    root_dir = r'/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction'
+
+    # compressed image directories
+    vectorized_luad_dir = join(root_dir, 'results', 'tcga_luad', 'vectorized')
+    vectorized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'vectorized')
+
+    encoders = ['4task','bigan']
+
+    if bigan:
+        model_path = nic_dir + '/models/encoders_patches_pathology/encoder_bigan.h5'
+        featurized_luad_dir = join(root_dir, 'results', 'tcga_luad', 'featurized', 'no_augmentations')
+        featurized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'featurized', 'no_augmentations')
+        featurized_luad_dir_aug = join(root_dir, 'results', 'tcga_luad', 'featurized', 'augmented')
+        featurized_lusc_dir_aug = join(root_dir, 'results', 'tcga_lusc', 'featurized', 'augmented')
+
+    else:
+        model_path = r'/mnt/netcache/pathology/projects/pathology-proacting/neoadjuvant_nki/nic/encoder_zoo/supervsied_enc_2019_4tasks.h5'
+        featurized_luad_dir = join(root_dir, 'results', 'tcga_luad', 'featurized', 'no_augmentations_4task')
+        featurized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'featurized', 'no_augmentations_4task')
+        featurized_luad_dir_aug = join(root_dir, 'results', 'tcga_luad', 'featurized', 'augmented_4task')
+        featurized_lusc_dir_aug = join(root_dir, 'results', 'tcga_lusc', 'featurized', 'augmented_4task')
+
+    if augmented:
+        print(f'Running featurizing with augmentations using {encoders[bigan]} encoder')
+        featurize_images_augmented(vectorized_luad_dir, model_path, featurized_luad_dir_aug, batch_size=32)
+        featurize_images_augmented(vectorized_lusc_dir, model_path, featurized_lusc_dir_aug, batch_size=32)
+    else:
+        print(f'Running featurizing with no augmentations using {encoders[bigan]} encoder')
+        featurize_images(vectorized_luad_dir, model_path, featurized_luad_dir_aug, batch_size=32)
+        featurize_images(vectorized_lusc_dir, model_path, featurized_lusc_dir_aug, batch_size=32)

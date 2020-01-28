@@ -95,11 +95,21 @@ def train_model(featurized_dir, csv_path, fold_n, output_dir, cache_dir, batch_s
 
 
 if __name__ == '__main__':
+    """
+            The following will train the model using augmentations of the featurized files produced by the bigan encoder:
 
+                    python3 baseline.py encoding_method batches epochs directory_name
+                    python3 baseline.py 1 8 100 baseline_8_100_bigan
+
+            The following will train the model using augmentations of the featurized files produced by the 4task encoder:
+
+                    python3 baseline.py 0 8 100 baseline_8_100_4task    
+            """
     # Get parameters
-    batch_size = int(sys.argv[1])
-    epochs = int(sys.argv[2])
-    result_dir_name = sys.argv[3]
+    bigan = int(sys.argv[1])
+    batch_size = int(sys.argv[2])
+    epochs = int(sys.argv[3])
+    result_dir_name = sys.argv[4]
 
     # project and data directories
     root_dir = r'/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction'
@@ -114,15 +124,22 @@ if __name__ == '__main__':
     # compressed image directories
     vectorized_luad_dir = join(root_dir, 'results', 'tcga_luad', 'vectorized')
     vectorized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'vectorized')
-    featurized_luad_dir = join(root_dir, 'results', 'tcga_luad', 'featurized', 'no_augmentations')
-    featurized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'featurized', 'no_augmentations')
+
+    encoders = ['4task', 'bigan']
+
+    if bigan:
+        featurized_luad_dir = join(root_dir, 'results', 'tcga_luad', 'featurized', 'no_augmentations')
+        featurized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'featurized', 'no_augmentations')
+
+    else:
+        featurized_luad_dir = join(root_dir, 'results', 'tcga_luad', 'featurized', 'no_augmentations_4task')
+        featurized_lusc_dir = join(root_dir, 'results', 'tcga_lusc', 'featurized', 'no_augmentations_4task')
 
     # results directory
     result_dir = join(root_dir, 'results', 'models', result_dir_name)  # store the results from trained model
     gradcam_dir = join(result_dir, 'gradcam')  # store gradcam results
 
     # Set paths
-    model_path = './neural-image-compression-private/models/encoders_patches_pathology/encoder_bigan.h5'
     csv_train = os.path.join(root_dir, 'data', 'train_slide_list_tcga.csv')
     csv_val = os.path.join(root_dir, 'data', 'validation_slide_list_tcga.csv')
     csv_test = os.path.join(root_dir, 'data', 'test_slide_list_tcga.csv')
@@ -142,18 +159,19 @@ if __name__ == '__main__':
     featurized_dir = {'data_dir_luad': featurized_luad_dir, 'data_dir_lusc': featurized_lusc_dir}
     csv_path = {'csv_train': csv_train, 'csv_val': csv_val, 'csv_test': csv_test}
 
+    # TO DO: Test/split should be done once, during preprocessing not here.
     # Create csv files
-    print('Creating compressed wsi csv file ...')
-    create_csv(featurized_luad_dir, featurized_lusc_dir, csv_path_compressed_wsi)
-
-    print('Creating split train/validation/test csv files with no augmentations ...')
-    generate_csv_files(csv_path_compressed_wsi, csv_train, csv_val, csv_test, test_size=0.2, validation_size = 0.3)
+    # print('Creating compressed wsi csv file ...')
+    # create_csv(featurized_luad_dir, featurized_lusc_dir, csv_path_compressed_wsi)
+    #
+    # print('Creating split train/validation/test csv files with no augmentations ...')
+    # generate_csv_files(csv_path_compressed_wsi, csv_train, csv_val, csv_test, test_size=0.2, validation_size = 0.3)
 
     # read files to check shapes
     df = pd.read_csv(csv_train);  df2 = pd.read_csv(csv_val);   df3 = pd.read_csv(csv_test)
     print(f'Files were read with shapes: Training: {df.shape}, Validation {df2.shape}, Testing {df3.shape}')
     print(f'Total files: Files were read with shapes: {df.shape[0]+df2.shape[0]+df3.shape[0]}')
-
+    print(f'Training with no augmentations using {encoders[bigan]} encoder')
     train_model(
         featurized_dir=featurized_dir,
         csv_path=csv_path,

@@ -1,4 +1,4 @@
-# Pathology Weakely Supervised Lung Cancer Classification
+# Weakly Supervised Lung Cancer Classification
 
 Evaluation of [Neural Image Compression for Gigapixel Histopathology Image Analysis](https://arxiv.org/abs/1811.02840) on lung cancer classification using TCGA data.
 

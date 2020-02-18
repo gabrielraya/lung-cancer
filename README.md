@@ -1,11 +1,13 @@
-# Pathology Weakely Supervised Lung Cancer Growth pattern Prediction
+# Pathology Weakely Supervised Lung Cancer Classification
 
-## Approaches
+Evaluation of [Neural Image Compression for Gigapixel Histopathology Image Analysis](https://arxiv.org/abs/1811.02840) on lung cancer classification using TCGA data.
 
-1. Lung cancer classification using TCGA data
-2. Lung cancer classification subtypes using NLST data
+![method](https://github.com/computationalpathologygroup/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/blob/master/images/pipeline.PNG)
+
+Compressed whole slide images using NIC.
 
 
+![compressed wsi](https://github.com/computationalpathologygroup/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/blob/master/images/sample_data_compressed.png)
 
 ## TCGA 
 

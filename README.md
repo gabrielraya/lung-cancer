@@ -4,18 +4,28 @@ Evaluation of [Neural Image Compression for Gigapixel Histopathology Image Analy
 
 ![method](https://github.com/computationalpathologygroup/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/blob/master/images/pipeline.PNG)
 
-Compressed whole slide images using NIC.
 
+### General Overview:
 
-![compressed wsi](https://github.com/computationalpathologygroup/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/blob/master/images/sample_data_compressed.png)
-
-## TCGA 
-
-### Steps:
-
+1. Convert .SVS files to TIF files
+1. Generate Mask files
 1. Vectorize data
-2. Featurize vecorized data
-3. Generate csv file with labels and slide names using the featurize folders with `python preprocessing.py`
+1. Featurize vecorized data
+1. Data Analysis
+1. Model
+1. Train Model
+1. Evaulation of the Model
+1. GradCam Analysis
+10. Evaluate model using data from different datasets.
+
+### Files
+
+1. Generate csv file with labels and slide names using the featurize folders with `python preprocessing.py`
+
+
+### Preprocessing
+1. Compressed Whole Slides
+2. Crop images to set a fixed size to input the network. 
 
 
 ### python scripts:

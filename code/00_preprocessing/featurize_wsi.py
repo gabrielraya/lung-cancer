@@ -15,8 +15,8 @@ Note: Before running this
 
 # Import NIC to python path
 import sys
-nic_dir = '/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/neural-image-compression-private'
-sys.path.append(nic_dir +'/source')
+print('Adding Neural Image Compression library to python path')
+sys.path.append('/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/neural-image-compression-private/source')
 
 import os
 from os.path import join

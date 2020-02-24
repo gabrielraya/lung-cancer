@@ -23,7 +23,7 @@ def data_to_csv(data_dir, csv_path, ext='.png'):
     files_class_1 = sorted([(os.path.basename(file)).split('.')[0] for file in tqdm(os.listdir(data_dir)) if file.endswith(ext)])
     labels1 = np.ones(len(files_class_1), dtype=np.int8)
     df1 = pd.DataFrame(list(zip(files_class_1, labels1)), columns=['slide_id', 'label'])
-    df1.to_csv(csv_path, index=None, header=True)
+    df1.to_csv(csv_path, index=False, header=True)
     print('Csv file sucessfully exported!')
 
 

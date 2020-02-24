@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Command list
 
 
@@ -20,3 +21,51 @@
 -     
  
 
+=======
+# Commands
+
+
+Data is already converted to tif files, and mask have been created.
+
+## symlink:
+
+```shell
+ln -s /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/ ./
+```
+
+### Convert svs to tif files
+
+
+### Generate wsi background masks
+
+```shell
+./c-submit --require-mem=16G --require-cpus=4 --require-diskspace=10G --require-gpu-mem="8G" --gpu-count=1 --constraint avx gabrielrodriguez 8892 100 doduo1.umcn.nl/witali/background:1 /mnt/netcache/pathology/users/witali/tissue_background_segmentation/background_seg.sh "/mnt/netcache/pathology/users/gabriel/DeepPATH_NIC/data/wsi_tif" "tif" "/mnt/netcache/pathology/users/gabriel/DeepPATH_NIC/data/wsi_masks"
+```
+
+### Vectorize images
+
+Default settings: vectorize images at magnification level 1 with patch size of 128 pixels.
+
+* LUAD
+```shell
+python3 /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/00_preprocessing/vectorize_wsi.py --wsiFolder="/mnt/netcache/pathology/archives/lung/TCGA_LUAD/wsi_diagnostic_tif" --maskFolder="/mnt/netcache/pathology/archives/lung/TCGA_LUAD/tissue_masks_diagnostic" --outputDir="/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_luad/vectorized"
+```
+    
+* LUSC
+```shell
+python3 /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/00_preprocessing/vectorize_wsi.py --wsiFolder="/mnt/netcache/pathology/archives/lung/TCGA_LUSC/wsi_diagnostic_tif" --maskFolder="/mnt/netcache/pathology/archives/lung/TCGA_LUSC/tissue_masks_diagnostic" --outputDir="/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_lusc/vectorized"
+```
+
+### Featurize
+```shell
+    To run the scrip just change the data_dir name
+    
+    The following will run bigan encoder with augmentations:
+        
+            python3 featurize_wsi.py 1 1
+            
+    The following will run 4task encoder with no augmentations:
+        
+            python3 featurize_wsi.py 0 0       
+```
+>>>>>>> master

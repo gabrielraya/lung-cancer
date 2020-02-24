@@ -76,7 +76,7 @@ def vectorize_images(input_dir, mask_dir, output_dir,  cache_dir, image_level, p
 if __name__ == '__main__':
     """
     Example: 
-    python3 /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/00_preprocessing/vectorize_wsi.py 
+    python3 /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/preprocessing/vectorize_wsi.py 
     --wsiFolder="/mnt/netcache/pathology/archives/lung/TCGA_LUSC/wsi_diagnostic_tif" --maskFolder="/mnt/netcache/pathology/archives/lung/TCGA_LUSC/tissue_masks_diagnostic"
     --outputDir="/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_lusc/vectorized"
     """

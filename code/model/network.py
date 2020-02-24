@@ -77,8 +77,8 @@ def build_wsi_classifier(input_shape, lr, output_units):
     model = keras.models.Model(inputs=input_x, outputs=x)
     model.compile(
         optimizer=keras.optimizers.Adam(lr=lr),
-        loss=keras.losses.categorical_crossentropy,
-        metrics=[keras.metrics.categorical_accuracy]
+        loss=keras.losses.sparse_categorical_crossentropy,
+        metrics=[keras.metrics.sparse_categorical_accuracy]
     )
 
     # print('Classifier model:', flush=True)

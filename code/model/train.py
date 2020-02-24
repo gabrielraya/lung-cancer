@@ -1,28 +1,16 @@
 # Import NIC to python path
 import sys
-import os
 
-nic_dir = '/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/neural-image-compression-private'
-sys.path.append(nic_dir + '/source')
+# nic_dir = '/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/neural-image-compression-private'
+# sys.path.append(nic_dir + '/source')
 
-# Copy data
-# print('Copying data to local instance')
-# os.system('mkdir /home/user/featurized_tcga_luad/')
-# os.system('mkdir /home/user/featurized_tcga_lusc/')
-# os.system('cp -r /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_luad/featurized/no_augmentations/ /home/user/featurized_tcga_luad')
-# os.system('cp -r /mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/results/tcga_lusc/featurized/no_augmentations/ /home/user/featurized_tcga_lusc')
 
-import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from tqdm import tqdm
 import os, shutil
-from os.path import join, dirname, exists
-import keras
+from os.path import join, exists
 from gradcam_wsi import gradcam_on_dataset
-from preprocessing import data_to_csv, create_csv, generate_csv_files
+from preprocessing import data_to_csv
 from model_training import train_wsi_classifier, eval_model, compute_metrics
-from utils import check_file_exists
 
 
 def train_model(featurized_dir, csv_path, fold_n, output_dir, cache_dir, batch_size=16, epochs=32,
@@ -93,17 +81,17 @@ def train_model(featurized_dir, csv_path, fold_n, output_dir, cache_dir, batch_s
     except Exception as e:
         print('Failed to compute metrics. Exception: {e}'.format(e=e), flush=True)
 
-
+#%%
 if __name__ == '__main__':
     """
             The following will train the model using augmentations of the featurized files produced by the bigan encoder:
 
-                    python3 baseline.py encoding_method batches epochs directory_name
-                    python3 baseline.py 1 8 100 baseline_8_100_bigan
+                    python3 train.py encoding_method batches epochs directory_name
+                    python3 train.py 1 8 100 baseline_8_100_bigan
 
             The following will train the model using augmentations of the featurized files produced by the 4task encoder:
 
-                    python3 baseline.py 0 8 100 baseline_8_100_4task    
+                    python3 train.py 0 8 100 baseline_8_100_4task    
             """
     # Get parameters
     bigan = int(sys.argv[1])
@@ -111,6 +99,14 @@ if __name__ == '__main__':
     epochs = int(sys.argv[3])
     result_dir_name = sys.argv[4]
 
+#%%
+
+batch_size = 2
+epochs = 2
+result_dir_name = './'
+bigan = 1
+
+#%%
     # project and data directories
     root_dir = r'/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction'
     data_dir = r'/mnt/netcache/pathology/archives/lung'
@@ -149,8 +145,8 @@ if __name__ == '__main__':
     csv_path_wsi = os.path.join(root_dir, 'data', 'slide_original_list_tcga.csv')
     csv_path_compressed_wsi = os.path.join(root_dir, 'data', 'slide_compressed_list_tcga.csv')
 
-    os.system('mkdir /home/user/data')
-    cache_dir = '/home/user/data'   # used to store local copies of files during I/O operations (useful in cluster
+    # os.system('mkdir /home/user/data')
+    # cache_dir = '/home/user/data'   # used to store local copies of files during I/O operations (useful in cluster
 
     # Train CNN
 
@@ -166,30 +162,33 @@ if __name__ == '__main__':
     #
     # print('Creating split train/validation/test csv files with no augmentations ...')
     # generate_csv_files(csv_path_compressed_wsi, csv_train, csv_val, csv_test, test_size=0.2, validation_size = 0.3)
-
+#%%
     # read files to check shapes
-    df = pd.read_csv(csv_train);  df2 = pd.read_csv(csv_val);   df3 = pd.read_csv(csv_test)
-    print(f'Files were read with shapes: Training: {df.shape}, Validation {df2.shape}, Testing {df3.shape}')
-    print(f'Total files: Files were read with shapes: {df.shape[0]+df2.shape[0]+df3.shape[0]}')
-    print(f'Training with no augmentations using {encoders[bigan]} encoder')
-    train_model(
-        featurized_dir=featurized_dir,
-        csv_path=csv_path,
-        fold_n=0,
-        output_dir=result_dir,
-        cache_dir=cache_dir,
-        batch_size=batch_size,
-        epochs=epochs,
-        delete_folder=True,
-        occlusion_augmentation=False,
-        lr=1e-2,
-        patience=4,
-        elastic_augmentation=False,
-        images_dir=None,  # required for GradCAM
-        vectorized_dir=None,  # required for GradCAM
-        shuffle_augmentation=None
-    )
+df = pd.read_csv(csv_train);  df2 = pd.read_csv(csv_val);   df3 = pd.read_csv(csv_test)
 
+print(f'Files were read with shapes: Training: {df.shape}, Validation {df2.shape}, Testing {df3.shape}')
+print(f'Total files: Files were read with shapes: {df.shape[0]+df2.shape[0]+df3.shape[0]}')
+print(f'Training with no augmentations using {encoders[bigan]} encoder')
+#%%
+train_model(
+    featurized_dir=featurized_dir,
+    csv_path=csv_path,
+    fold_n=0,
+    output_dir=result_dir,
+    cache_dir=cache_dir,
+    batch_size=batch_size,
+    epochs=epochs,
+    delete_folder=True,
+    occlusion_augmentation=False,
+    lr=1e-2,
+    patience=4,
+    elastic_augmentation=False,
+    images_dir=None,  # required for GradCAM
+    vectorized_dir=None,  # required for GradCAM
+    shuffle_augmentation=None
+)
+
+#%%
     print('GradCam will be apply to this dataset!')
     data_to_csv(featurized_luad_dir, csv_path_luad_feat)
 

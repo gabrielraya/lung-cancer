@@ -9,7 +9,7 @@ import scipy
 from nic.util_fns import cache_file
 
 
-def read_data(data_config, custom_augmentations=None):
+def read_data(data_config, augmentations=False):
     """
     Data reader and shuffle
     Inputs:
@@ -19,20 +19,25 @@ def read_data(data_config, custom_augmentations=None):
         image_ids_all, features_path, distance_map_path, labels_all, features_ids_all
     """
 
-    # Set augmentations : Comment this line to run baseline without augmentations
-    custom_augmentations = [('none', 0), ('none', 90), ('none', 180), ('none', 270), ('horizontal', 0), ('vertical', 0), ('vertical', 90), ('vertical', 270)]
-
     # Get params
     data_dir_class1 = data_config['data_dir_luad']
     data_dir_class0 = data_config['data_dir_lusc']
     csv_dir = data_config['csv_path']
 
+    # Set augmentations : Comment this line to run baseline without augmentations
+    custom_augmentations = [('none', 0), ('none', 90), ('none', 180), ('none', 270), ('horizontal', 0), ('vertical', 0),
+                            ('vertical', 90), ('vertical', 270)]
+
     # Read image file names
     df = pd.read_csv(csv_dir)
     df = shuffle(df)
+    data_size = len(df)
+
+    # get images ids and labels
     image_ids = list(df['slide_id'].values)
     labels = df['label'].values.astype('uint8')
 
+    # use to map values to label names
     set_dir = [data_dir_class0, data_dir_class1]
 
     # Get paths
@@ -42,25 +47,30 @@ def read_data(data_config, custom_augmentations=None):
     labels_all = []
     features_ids_all = []
 
-    if custom_augmentations is None:
+    # Read data with no agumentation
+    if augmentations is False:
+        print(f'Reading {data_size} files with no augmentations')
         for i, image_id in enumerate(image_ids):
             label = labels[i]
             # if label 0 then dir data_dir_class0 if 1 data_dir_class1
             f_path = os.path.join(set_dir[label], '{image_id}.npy'.format(image_id=image_id))
             dm_path = os.path.join(set_dir[label], '{image_id}_distance_map.npy'.format(image_id=image_id))
             feature_id = os.path.splitext(os.path.basename(f_path))[0][:-9]
+
             image_ids_all.append(image_id)
             features_path.append(f_path)
             distance_map_path.append(dm_path)
             labels_all.append(label)
             features_ids_all.append(feature_id)
     else:
+        print(f'Reading {data_size}  with augmentations')
         for i, image_id in enumerate(image_ids):
             for flip, rot in custom_augmentations:
                 label = labels[i]
                 f_path = os.path.join(set_dir[label],'{image_id}_{rot}_{flip}_features.npy'.format(image_id=image_id, rot=int(rot), flip=str(flip)))
                 dm_path = os.path.join(set_dir[label], '{image_id}_{rot}_{flip}_features_distance_map.npy'.format(image_id=image_id, rot=int(rot), flip=str(flip)))
                 feature_id = os.path.splitext(os.path.basename(f_path))[0][:-9]
+
                 image_ids_all.append(image_id)
                 features_path.append(f_path)
                 distance_map_path.append(dm_path)
@@ -124,7 +134,7 @@ class FeaturizedWsiGenerator(object):
 
     def __init__(self, data_config, data_fn, batch_size, augment, crop_size, cache_dir=None, balanced=True,
                  keep_data=1.0, occlusion_augmentation=False, elastic_augmentation=False, shuffle_augmentation=None,
-                 binary_target=True):
+                 binary_target=True, augmentations=False):
 
         # Params
         self.batch_size = batch_size
@@ -144,7 +154,7 @@ class FeaturizedWsiGenerator(object):
             os.makedirs(self.cache_dir)
 
         # Read paths
-        self.image_ids, self.paths, self.dm_paths, self.labels, self.feature_ids = data_fn(data_config)
+        self.image_ids, self.paths, self.dm_paths, self.labels, self.feature_ids = data_fn(data_config, augmentations)
 
         # Keep data (assume they are shuffled)
         n = int(len(self.image_ids) * keep_data)
@@ -386,7 +396,7 @@ class FeaturizedWsiSequence(keras.utils.Sequence):
     """
 
     def __init__(self, data_config, data_fn, batch_size, crop_size, balanced, cache_dir=None, keep_data=1.0,
-                 return_ids=False, binary_target=True, n_crops=None):
+                 return_ids=False, binary_target=True, n_crops=None, augmentations=False):
 
         # Params
         self.batch_size = batch_size
@@ -404,7 +414,7 @@ class FeaturizedWsiSequence(keras.utils.Sequence):
             os.makedirs(self.cache_dir)
 
         # Read paths
-        self.image_ids, self.paths, self.dm_paths, self.labels, self.feature_ids = data_fn(data_config)
+        self.image_ids, self.paths, self.dm_paths, self.labels, self.feature_ids = data_fn(data_config, augmentations)
 
         # Keep data (assume they are shuffled)
         n = int(np.ceil(len(self.image_ids) * keep_data))

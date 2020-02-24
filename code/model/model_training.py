@@ -1,27 +1,4 @@
-"""
-Train a CNN on compressed whole-slide images.
-
-    class 1 : luad
-    class 0 : lusc
-
-    Dataset:
-        531 in LUAD
-        506 in LUSC
-"""
-# Copy data to local instance
-cluster: bool = False
-
 import os
-if cluster:
-    os.system('mkdir tcga_luad/')
-    os.system('mkdir tcga_lusc/')
-    os.system('cp /mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/tcga/featurized/tcga_luad/normal/* ./tcga_luad')
-    os.system('cp /mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/tcga/featurized/tcga_lusc/normal/* ./tcga_lusc')
-    # Import NIC to python path
-    import sys
-    nic_dir = '/mnt/netcache/pathology/projects/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/code/neural-image-compression-private'
-    sys.path.append(nic_dir +'/source')
-
 import keras
 import pandas as pd
 import time
@@ -34,10 +11,10 @@ from nic.gradcam_wsi import gradcam_on_features, grad_cam_fn, image_crop_from_ws
 import glob
 from os.path import exists, join, basename, dirname
 import shutil
-from data_processing import read_data, FeaturizedWsiSequence, FeaturizedWsiGenerator
+from data import read_data, FeaturizedWsiSequence, FeaturizedWsiGenerator
 from nic.callbacks import ReduceLROnPlateau, ModelCheckpoint, HistoryCsv, FinishedFlag, PlotHistory, StoreModelSummary, \
     CopyResultsExternally, LearningRateScheduler
-from model import build_wsi_classifier
+from network import build_wsi_classifier
 
 
 def fit_model(training_generator, validation_generator, output_dir, model, n_epochs, train_step_multiplier, workers,
@@ -191,7 +168,6 @@ def train_wsi_classifier(data_dir, csv_path, partitions, crop_size, output_dir, 
     data_dir_lusc = data_dir['data_dir_lusc']
     csv_train = csv_path['csv_train']
     csv_val = csv_path['csv_val']
-    csv_test = csv_path['csv_test']
 
 
     print('Loading training set ...', flush=True)
@@ -239,6 +215,7 @@ def train_wsi_classifier(data_dir, csv_path, partitions, crop_size, output_dir, 
     min_lr = 1e-4
 
     print('Training model ...', flush=True)
+    return
     fit_model(
         training_generator=training_gen,
         validation_generator=validation_gen,
@@ -488,52 +465,3 @@ def gradcam_on_dataset(data_conf, model_path, layer_name, custom_objects=None,
             print('Failed to compute GradCAM on {f}. Exception: {e}'.format(f=path, e=e), flush=True)
 
 
-
-if __name__ == '__main__':
-    if cluster:
-        root_dir = '/home/user'
-        data_dir_luad = '/home/user/tcga_luad'
-        data_dir_lusc = '/home/user/tcga_lusc'
-        csv_path = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/data/tcga/slide_list_tcga.csv'
-        csv_train = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/data/tcga/train_slide_list_tcga.csv'
-        csv_val = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/data/tcga/validation_slide_list_tcga.csv'
-        csv_test = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/data/tcga/test_slide_list_tcga.csv'
-        model_dir = '/mnt/netcache/pathology/projects/pathology-lung-cancer-weak-growth-pattern-prediction/results/model_1_batch_size_12'  # change this everytime a new model is run
-    else:
-        csv_path = 'E:/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/data/slide_list_tcga.csv'
-        csv_train = 'E:/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/data/train_slide_list_tcga.csv'
-        csv_val = 'E:/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/data/validation_slide_list_tcga.csv'
-        csv_test = 'E:/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/data/test_slide_list_tcga.csv'
-        root_dir = r'E:/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction'
-        data_dir_luad = root_dir + r'/results/tcga_luad/featurized'
-        data_dir_lusc = root_dir + r'/results/tcga_lusc/featurized'
-        model_dir = root_dir + '/results/model'  # change this everytime a new model is run
-
-        # paths = {'csv_path': csv_path, 'csv_train': csv_train, 'csv_val': csv_val, 'csv_test': csv_test}
-        # generate_csv_files(paths, test_size=0.2, validation_size = 0.3)
-
-    cache_path = None
-
-    # Training
-    multiple_paths = {'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'output_dir': model_dir,
-                      'csv_train': csv_train, 'csv_val': csv_val, 'csv_test': csv_test, 'cache_path': cache_path}
-    #run_train_model(multiple_paths, epochs=200, size_of_batch=12)
-    run_train_model(multiple_paths, epochs=10, size_of_batch=2)
-    # Model Evaluation
-    #data_config = {'data_dir_luad': data_dir_luad, 'data_dir_lusc': data_dir_lusc, 'csv_path': csv_test}
-    #run_eval(data_config, model_dir, batch_size=12)
-    #
-    # from nic.gradcam_wsi gradcam_on_dataset
-    # # Apply GradCAM analysis to CNN
-    # gradcam_on_dataset(
-    #     featurized_dir=featurized_dir,
-    #     csv_path=csv_path,
-    #     model_path=join(result_dir, 'checkpoint.h5'),
-    #     partitions=folds[fold_n]['test'],
-    #     layer_name='separable_conv2d_1',
-    #     output_unit=1,
-    #     custom_objects=None,
-    #     cache_dir=cache_dir,
-    #     images_dir=images_dir,
-    #     vectorized_dir=vectorized_dir
-    # )

@@ -20,7 +20,7 @@ from PIL import Image
 from scipy.ndimage import gaussian_filter
 
 from nic.util_fns import cache_file
-from data_processing import read_data
+from data import read_data
 
 
 def grad_cam_fn(input_model, output_unit, layer_name):

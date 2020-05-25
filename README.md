@@ -2,7 +2,7 @@
 
 Evaluation of [Neural Image Compression for Gigapixel Histopathology Image Analysis](https://arxiv.org/abs/1811.02840) on lung cancer classification using TCGA data.
 
-![method](https://github.com/computationalpathologygroup/pathology-weakly-supervised-lung-cancer-growth-pattern-prediction/blob/master/images/pipeline.PNG)
+![method](https://github.com/gabrielraya/lung-cancer/blob/master/images/pipeline.PNG)
 
 
 ### General Overview:
